@@ -285,7 +285,6 @@
             <div id="night-targets-list"></div>
             <button id="night-done-btn" class="hidden" onclick="nextNightPlayer()">行動完了（次の人へ）</button>
         </div>
-        <button class="secondary" onclick="confirmReset()" style="margin-top: 20px;">🔄 最初からやり直す</button>
     </div>
 
     <!-- 7. ゲーム終了画面 -->
@@ -363,7 +362,6 @@
         let guardTargetIndex = null;
         let foxKilledIndex = null;
 
-        // 初期表示時のカウントバナー更新
         window.onload = () => {
             toggleMode();
         };
@@ -552,7 +550,6 @@
                 oracleMsg: ''
             }));
 
-            // 占い師へのお告げを占い師本人のデータにセット（他プレイヤーには見えないようにする）
             if (gameRules.oracle) {
                 playerData.forEach((p, idx) => {
                     if (p.role === '占い師 🔮') {
@@ -607,7 +604,6 @@
         function toggleRole() {
             document.getElementById('role-display').classList.remove('hidden');
             document.getElementById('show-btn').classList.add('hidden');
-            // 【バグ修正】確認完了ボタンを表示（remove）にする
             document.getElementById('next-btn').classList.remove('hidden');
         }
 
