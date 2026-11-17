@@ -1072,38 +1072,51 @@
                 }
                 infoBox.innerHTML = noticeHtml;
 
-                // 前の人狼たちが選んだ選択肢を抽出
-                let previousChoices = [];
+                // ターゲットごとに誰が選んだかをまとめる集計マップを作成
+                let targetMap = {}; // { targetIdx: [wolfName1, wolfName2, ...] }
                 for (let wIndex in wolfVotes) {
                     let targetIdx = wolfVotes[wIndex];
                     let wolfObj = playerData[wIndex];
-                    let targetObj = playerData[targetIdx];
-                    previousChoices.push({ wolfName: wolfObj.name, targetIdx: targetIdx, targetName: targetObj.name });
+                    if (!targetMap[targetIdx]) {
+                        targetMap[targetIdx] = [];
+                    }
+                    targetMap[targetIdx].push(wolfObj.name);
                 }
 
-                if (previousChoices.length === 0) {
-                    // 1人目の人狼：直接参加者（人狼以外）を選べるように一覧表示
+                let aggregatedChoices = [];
+                for (let tIdx in targetMap) {
+                    aggregatedChoices.push({
+                        targetIdx: Number(tIdx),
+                        targetName: playerData[tIdx].name,
+                        wolves: targetMap[tIdx]
+                    });
+                }
+
+                if (aggregatedChoices.length === 0) {
                     renderOtherTargetsList(actor, targetsDiv, []);
                 } else {
-                    // 2人目以降の人狼：上の選択肢に前の人狼たちの選択を表示し、下に「ほかの人を選ぶ」ボタンを表示
                     let topChoiceBox = document.createElement('div');
                     topChoiceBox.style.marginBottom = '12px';
                     topChoiceBox.innerHTML = `<div style="font-size: 13px; color: #ff6b81; font-weight: bold; margin-bottom: 4px;">📜 前の人狼たちの選択肢：</div>`;
 
-                    previousChoices.forEach(pc => {
+                    aggregatedChoices.forEach(ac => {
                         const btn = document.createElement('button');
                         btn.className = 'action-target';
                         btn.style.borderColor = '#ff6b81';
-                        btn.innerText = `🩸 ${pc.wolfName} が選んだ： ${pc.targetName} を襲撃する`;
+                        
+                        let wolfNamesStr = ac.wolves.join('、');
+                        let countStr = ac.wolves.length > 1 ? `（${ac.wolves.length}票）` : '';
+                        btn.innerText = `🩸 ${wolfNamesStr} が選んだ： ${ac.targetName} を襲撃する ${countStr}`;
+                        
                         btn.onclick = () => {
-                            wolfVotes[actor.originalIndex] = pc.targetIdx;
+                            wolfVotes[actor.originalIndex] = ac.targetIdx;
                             nextNightPlayer();
                         };
                         topChoiceBox.appendChild(btn);
                     });
                     targetsDiv.appendChild(topChoiceBox);
 
-                    const alreadyChosenIndices = previousChoices.map(pc => pc.targetIdx);
+                    const alreadyChosenIndices = aggregatedChoices.map(ac => ac.targetIdx);
                     const remainingCount = alivePlayers.filter(t => t.role !== '人狼 🐺' && !alreadyChosenIndices.includes(t.originalIndex)).length;
 
                     if (remainingCount > 0) {
