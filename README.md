@@ -168,6 +168,14 @@
                     <button type="button" class="btn-plus" onclick="changeCount('fox', 1)">＋</button>
                 </div>
             </div>
+            <div class="role-row">
+                <label class="role-left"><input type="checkbox" id="role-teruteru"> <span><b>てるてる ☀️</b><span class="role-desc">判定は村人側。昼の会議の投票で処刑されると単独勝利！</span></span></label>
+                <div class="stepper" data-key="teruteru">
+                    <button type="button" class="btn-minus" onclick="changeCount('teruteru', -1)">－</button>
+                    <span id="count-teruteru">0</span>
+                    <button type="button" class="btn-plus" onclick="changeCount('teruteru', 1)">＋</button>
+                </div>
+            </div>
             <div class="role-row" style="background: rgba(255, 71, 87, 0.12); padding: 8px; border-radius: 6px; border: 1px dashed #ff6b81;">
                 <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; flex: 1;">
                     <input type="checkbox" id="add-lovers" style="margin-top: 4px; width: 18px; height: 18px; flex-shrink: 0;">
@@ -188,6 +196,10 @@
             <label style="display: flex; align-items: center; justify-content: space-between; margin: 12px 0; font-size: 16px; cursor: pointer;">
                 <span>🔮 占い師へのお告げ（初日に人間側の安全な人が1人分かる）</span>
                 <input type="checkbox" id="rule-oracle" style="width: 20px; height: 20px;">
+            </label>
+            <label style="display: flex; align-items: center; justify-content: space-between; margin: 12px 0; font-size: 16px; cursor: pointer;">
+                <span>⏩ 初日の昼投票スキップ（少人数向け。初日の議論後に投票せずすぐ夜へ）</span>
+                <input type="checkbox" id="rule-skip-first-vote" style="width: 20px; height: 20px;">
             </label>
             <label style="display: flex; align-items: center; justify-content: space-between; margin: 12px 0; font-size: 16px; cursor: pointer;">
                 <span>🛡️ 騎士の自分ガード（自分自身を護衛できる）</span>
@@ -247,9 +259,10 @@
             <div id="fixed-composition-list"></div>
         </div>
 
-        <p>議論が終わったら投票に進んでください。</p>
-        
-        <button onclick="startVoting(null)">🗳️ 投票を始める（1人ずつ）</button>
+        <div id="vote-action-container">
+            <p>議論が終わったら投票に進んでください。</p>
+            <button id="main-vote-btn" onclick="triggerVoteOrSkip()">🗳️ 投票を始める（1人ずつ）</button>
+        </div>
 
         <hr style="border-color: #444; margin: 20px 0;">
         <h3>現在の生存状況</h3>
@@ -322,7 +335,8 @@
             'パン屋さん 🥖': '【人間陣営】生存している限り、毎朝美味しいパンが焼けたことが村全体に知らされます。',
             'カップル 💑': '【人間陣営】もう1人のカップルとお互いに結ばれています。',
             '猫又 🐾': '【人間陣営】夜に襲撃されると人狼を1匹道連れにします。（昼に処刑されるとランダム道連れ）',
-            '狐 🦊': '【第3陣営】襲撃死しませんが、占い師に占われると死亡します。決着時に生き残っていれば単独勝利！'
+            '狐 🦊': '【第3陣営】襲撃死しませんが、占い師に占われると死亡します。決着時に生き残っていれば単独勝利！',
+            'てるてる ☀️': '【第3陣営】判定は人間側ですが、昼の会議の投票で処刑された場合のみ単独勝利となります！生存していても村側が勝っても負けになります。'
         };
 
         const roleKeyMap = {
@@ -337,17 +351,19 @@
             'パン屋さん 🥖': 'baker',
             'カップル 💑': 'couple',
             '猫又 🐾': 'nekomata',
-            '狐 🦊': 'fox'
+            '狐 🦊': 'fox',
+            'てるてる ☀️': 'teruteru'
         };
 
         let roleCounts = {
             wolf: 1, madman: 0, cultist: 0, blackcat: 0,
             villager: 3, seer: 1, medium: 0, hunter: 0,
-            baker: 0, couple: 0, nekomata: 0, fox: 0
+            baker: 0, couple: 0, nekomata: 0, fox: 0, teruteru: 0
         };
 
         let gameRules = {
             oracle: false,
+            skipFirstVote: false,
             selfGuard: false,
             continuousGuard: false,
             loverSuicide: false,
@@ -401,12 +417,14 @@
             if (isRandom) {
                 steppers.forEach(s => s.classList.add('hidden'));
                 checkboxes.forEach(chk => {
-                    chk.classList.remove('hidden');
+                    if (chk.id !== 'add-lovers') chk.classList.remove('hidden');
                 });
                 banner.classList.add('hidden');
             } else {
                 steppers.forEach(s => s.classList.remove('hidden'));
-                checkboxes.forEach(chk => chk.classList.add('hidden'));
+                checkboxes.forEach(chk => {
+                    if (chk.id !== 'add-lovers') chk.classList.add('hidden');
+                });
                 banner.classList.remove('hidden');
                 syncCountsWithPlayerCount();
             }
@@ -512,6 +530,7 @@
 
         function startGameSetup() {
             gameRules.oracle = document.getElementById('rule-oracle').checked;
+            gameRules.skipFirstVote = document.getElementById('rule-skip-first-vote').checked;
             gameRules.selfGuard = document.getElementById('rule-self-guard').checked;
             gameRules.continuousGuard = document.getElementById('rule-continuous-guard').checked;
             gameRules.loverSuicide = document.getElementById('rule-lover-suicide').checked;
@@ -535,6 +554,7 @@
                 if (document.getElementById('role-baker').checked) candidateRoles.push('パン屋さん 🥖');
                 if (document.getElementById('role-nekomata').checked) candidateRoles.push('猫又 🐾');
                 if (document.getElementById('role-fox').checked) candidateRoles.push('狐 🦊');
+                if (document.getElementById('role-teruteru').checked) candidateRoles.push('てるてる ☀️');
 
                 let hasCouple = document.getElementById('role-couple').checked;
                 roles = [];
@@ -621,7 +641,8 @@
                 role === '騎士 🛡️' ||
                 role === 'パン屋さん 🥖' ||
                 role === 'カップル 💑' ||
-                role === '猫又 🐾'
+                role === '猫又 🐾' ||
+                role === 'てるてる ☀️'
             );
         }
 
@@ -657,7 +678,6 @@
                     allyLines.push(p.oracleMsg);
                 }
 
-                // 追加役職「恋人」の情報表示（相手の名前と相手の役職を知る）
                 if (p.isLover) {
                     const partner = playerData.find((other, idx) => idx !== currentIndex && other.isLover);
                     if (partner) {
@@ -761,6 +781,20 @@
                 newsBox.classList.remove('hidden');
             } else {
                 newsBox.classList.add('hidden');
+            }
+
+            // 初日投票スキップルールの適用ボタン制御
+            const voteActionContainer = document.getElementById('vote-action-container');
+            if (dayCount === 1 && gameRules.skipFirstVote) {
+                voteActionContainer.innerHTML = `
+                    <p style="color: #ffa502; font-weight: bold;">⏩ 初日投票スキップモードが有効です</p>
+                    <button class="night-btn" onclick="proceedToNight()">🌙 夜の行動へ直接進む</button>
+                `;
+            } else {
+                voteActionContainer.innerHTML = `
+                    <p>議論が終わったら投票に進んでください。</p>
+                    <button onclick="startVoting(null)">🗳️ 投票を始める（1人ずつ）</button>
+                `;
             }
 
             renderPlayerList();
@@ -871,7 +905,6 @@
             let deadAdded = true;
             while (deadAdded) {
                 deadAdded = false;
-                // カップル 💑 の後追いチェック
                 const couples = playerData.filter(p => p.role === 'カップル 💑');
                 if (couples.length === 2) {
                     const c1 = couples[0];
@@ -886,7 +919,6 @@
                         deadAdded = true;
                     }
                 }
-                // 追加役職 恋人 💘 の後追いチェック
                 const lovers = playerData.filter(p => p.isLover);
                 if (lovers.length === 2) {
                     const l1 = lovers[0];
@@ -938,6 +970,12 @@
 
                 announceDiv.innerText = `最多得票の「${playerData[execIdx].name}」さんが処刑されました。`;
 
+                // 処刑された人が「てるてる ☀️」だった場合の即時勝利判定
+                if (playerData[execIdx].role === 'てるてる ☀️') {
+                    triggerTeruteruWin(playerData[execIdx]);
+                    return;
+                }
+
                 let extraNews = [];
                 if (playerData[execIdx].role === '黒猫 🐈‍⬛') {
                     const remainingAlive = playerData.map((p, i) => ({ ...p, idx: i })).filter(p => p.alive);
@@ -945,6 +983,12 @@
                         const victim = remainingAlive[Math.floor(Math.random() * remainingAlive.length)];
                         playerData[victim.idx].alive = false;
                         extraNews.push(`💥 黒猫の道連れにより、「${victim.name}」さんも死亡しました！`);
+                        
+                        // 道連れ被害者がてるてるだった場合の判定
+                        if (playerData[victim.idx].role === 'てるてる ☀️') {
+                            triggerTeruteruWin(playerData[victim.idx]);
+                            return;
+                        }
                     }
                 }
 
@@ -962,6 +1006,27 @@
             }
         }
 
+        function triggerTeruteruWin(teruteruPlayer) {
+            if (timerInterval) clearInterval(timerInterval);
+            document.getElementById('vote-result-screen').classList.add('hidden');
+            document.getElementById('gameover-screen').classList.remove('hidden');
+
+            document.getElementById('winner-title').innerText = `☀️ てるてる（第3陣営）の単独勝利！`;
+            document.getElementById('winner-reason').innerText = `昼の投票により「${teruteruPlayer.name}」さんが処刑されたため、てるてるの単独勝利となりました！`;
+
+            const finalList = document.getElementById('final-player-list');
+            finalList.innerHTML = '';
+            playerData.forEach(p => {
+                const badge = p.alive ? '<span class="badge-alive">生存</span>' : '<span class="badge-dead">死亡</span>';
+                const loverLabel = p.isLover ? ' <span style="color:#ff6b81; font-weight:bold;">+ 💘恋人</span>' : '';
+                finalList.innerHTML += `
+                    <li style="padding: 8px; border-bottom: 1px solid #444; display: flex; justify-content: space-between;">
+                        <span><b>${p.name}</b> （${p.role}${loverLabel}）</span>
+                        ${badge}
+                    </li>`;
+            });
+        }
+
         function proceedToNight() {
             if (checkWinCondition()) return;
 
@@ -972,6 +1037,7 @@
             foxKilledIndex = null;
 
             document.getElementById('vote-result-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
             document.getElementById('night-screen').classList.remove('hidden');
             updateNightScreen();
         }
@@ -1124,7 +1190,6 @@
                 let checkAgain = true;
                 while (checkAgain) {
                     checkAgain = false;
-                    // カップル 💑
                     const couples = playerData.filter(p => p.role === 'カップル 💑');
                     if (couples.length === 2) {
                         const c1 = couples[0];
@@ -1139,7 +1204,6 @@
                             checkAgain = true;
                         }
                     }
-                    // 追加役職 恋人 💘
                     const lovers = playerData.filter(p => p.isLover);
                     if (lovers.length === 2) {
                         const l1 = lovers[0];
@@ -1174,7 +1238,6 @@
             const aliveFoxes = playerData.filter(p => p.alive && p.role === '狐 🦊').length;
             const aliveHumans = playerData.filter(p => p.alive && p.role !== '人狼 🐺' && p.role !== '狐 🦊').length;
 
-            // 恋人の状態確認
             const lovers = playerData.filter(p => p.isLover);
             const bothLoversAlive = (lovers.length === 2 && lovers[0].alive && lovers[1].alive);
             const loversAreBothHuman = (lovers.length === 2 && isHumanSide(lovers[0].role) && isHumanSide(lovers[1].role));
@@ -1184,8 +1247,9 @@
             let winner = null;
             let reason = '';
 
-            if (aliveWolves === 0) {
-                // 決着時：第3陣営の恋人が2人とも生き残っていれば恋人勝利
+            const humanWinCondition = (initialWolvesCount >= 2) ? (aliveWolves === 0) : (aliveWolves === 0);
+
+            if (humanWinCondition) {
                 if (loversAreThirdParty && bothLoversAlive) {
                     winner = '💘 恋人（第3陣営）の単独勝利！';
                     reason = `人狼が全滅したとき、愛し合う2人（${lovers[0].name}・${lovers[1].name}）が生き残っていました！`;
