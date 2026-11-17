@@ -65,7 +65,7 @@
         <div class="role-section">
             <h4>🐺 人狼陣営</h4>
             <div class="role-row">
-                <label class="role-left"><input type="checkbox" id="role-wolf" checked disabled> <span><b>人狼 🐺</b><span class="role-desc">【必須】毎晩1人を襲撃。人間と同数以下で勝利。</span></span></label>
+                <label class="role-left"><input type="checkbox" id="role-wolf" checked> <span><b>人狼 🐺</b><span class="role-desc">毎晩1人を襲撃。人間と同数以下で勝利。</span></span></label>
                 <div class="stepper" data-key="wolf">
                     <button type="button" class="btn-minus" onclick="changeCount('wolf', -1)">－</button>
                     <span id="count-wolf">1</span>
@@ -141,11 +141,11 @@
                 </div>
             </div>
             <div class="role-row">
-                <label class="role-left"><input type="checkbox" id="role-lover"> <span><b>恋人 ❤️</b><span class="role-desc">（※2人セット）結ばれた2人。</span></span></label>
-                <div class="stepper" data-key="lover">
-                    <button type="button" class="btn-minus" onclick="changeCount('lover', -2)">－</button>
-                    <span id="count-lover">0</span>
-                    <button type="button" class="btn-plus" onclick="changeCount('lover', 2)">＋</button>
+                <label class="role-left"><input type="checkbox" id="role-couple"> <span><b>カップル 💑</b><span class="role-desc">（※2人セット）結ばれた2人。</span></span></label>
+                <div class="stepper" data-key="couple">
+                    <button type="button" class="btn-minus" onclick="changeCount('couple', -2)">－</button>
+                    <span id="count-couple">0</span>
+                    <button type="button" class="btn-plus" onclick="changeCount('couple', 2)">＋</button>
                 </div>
             </div>
             <div class="role-row">
@@ -159,7 +159,7 @@
         </div>
 
         <div class="role-section">
-            <h4>🦊 第3陣営</h4>
+            <h4>🦊 第3陣営・特殊陣営</h4>
             <div class="role-row">
                 <label class="role-left"><input type="checkbox" id="role-fox"> <span><b>狐 🦊</b><span class="role-desc">襲撃死なし・占い死あり・生存勝利。</span></span></label>
                 <div class="stepper" data-key="fox">
@@ -167,6 +167,12 @@
                     <span id="count-fox">0</span>
                     <button type="button" class="btn-plus" onclick="changeCount('fox', 1)">＋</button>
                 </div>
+            </div>
+            <div class="role-row" style="background: rgba(255, 71, 87, 0.12); padding: 8px; border-radius: 6px; border: 1px dashed #ff6b81;">
+                <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; flex: 1;">
+                    <input type="checkbox" id="add-lovers" style="margin-top: 4px; width: 18px; height: 18px; flex-shrink: 0;">
+                    <span><b>恋人 💘（追加役職・人数カウント外）</b><span class="role-desc">参加者からランダム2人に追加付与。お互いの名前と役職を知る。異なる陣営同士なら第3陣営として2人での勝利を目指す！</span></span>
+                </label>
             </div>
         </div>
 
@@ -184,11 +190,15 @@
                 <input type="checkbox" id="rule-oracle" style="width: 20px; height: 20px;">
             </label>
             <label style="display: flex; align-items: center; justify-content: space-between; margin: 12px 0; font-size: 16px; cursor: pointer;">
+                <span>🛡️ 騎士の自分ガード（自分自身を護衛できる）</span>
+                <input type="checkbox" id="rule-self-guard" style="width: 20px; height: 20px;">
+            </label>
+            <label style="display: flex; align-items: center; justify-content: space-between; margin: 12px 0; font-size: 16px; cursor: pointer;">
                 <span>🛡️ 騎士の連続ガード（同じ人を2晩連続で守れる）</span>
                 <input type="checkbox" id="rule-continuous-guard" style="width: 20px; height: 20px;">
             </label>
             <label style="display: flex; align-items: center; justify-content: space-between; margin: 12px 0; font-size: 16px; cursor: pointer;">
-                <span>💔 恋人の後追い自殺（どちらかが死ぬともう1人も殉死する）</span>
+                <span>💔 カップル・恋人の後追い自殺（片方が死ぬともう1人も殉死）</span>
                 <input type="checkbox" id="rule-lover-suicide" style="width: 20px; height: 20px;">
             </label>
             <label style="display: flex; align-items: center; justify-content: space-between; margin: 12px 0; font-size: 16px; cursor: pointer;">
@@ -208,7 +218,8 @@
         <button id="show-btn" onclick="toggleRole()">自分の役職を見る</button>
         <div id="role-display" class="hidden" style="margin: 20px 0;">
             <div id="role-name-text" style="font-size: 24px; color: #ff4757; font-weight: bold;"></div>
-            <div id="role-ally-text" style="font-size: 15px; color: #ffa502; font-weight: bold; margin-top: 8px;"></div>
+            <div id="role-sub-text" style="font-size: 18px; color: #ff6b81; font-weight: bold; margin-top: 6px;"></div>
+            <div id="role-ally-text" style="font-size: 15px; color: #ffa502; font-weight: bold; margin-top: 8px; line-height: 1.5;"></div>
             <div id="role-desc-text" class="info-box"></div>
         </div>
         <button id="next-btn" class="hidden" onclick="nextPlayer()">確認完了（次の人へ）</button>
@@ -307,9 +318,9 @@
             '村人 👤': '【人間陣営】特殊能力はありません。推理と議論で人狼を見つけ出しましょう。',
             '占い師 🔮': '【人間陣営】毎晩1人を占い、「人狼」か「人間」かを知ることができます。（狐を占うと呪殺）',
             '霊能者 👻': '【人間陣営】前の日の昼に処刑された人が「人狼」だったか「人間」だったかを知ることができます。',
-            '騎士 🛡️': '【人間陣営】毎晩自分以外の1人を守り、人狼の襲撃から救うことができます。',
+            '騎士 🛡️': '【人間陣営】毎晩1人を守り、人狼の襲撃から救うことができます。',
             'パン屋さん 🥖': '【人間陣営】生存している限り、毎朝美味しいパンが焼けたことが村全体に知らされます。',
-            '恋人 ❤️': '【人間陣営】もう1人の恋人とお互いに結ばれています。どちらかが死ぬと後追いしてしまいます。',
+            'カップル 💑': '【人間陣営】もう1人のカップルとお互いに結ばれています。',
             '猫又 🐾': '【人間陣営】夜に襲撃されると人狼を1匹道連れにします。（昼に処刑されるとランダム道連れ）',
             '狐 🦊': '【第3陣営】襲撃死しませんが、占い師に占われると死亡します。決着時に生き残っていれば単独勝利！'
         };
@@ -324,7 +335,7 @@
             '霊能者 👻': 'medium',
             '騎士 🛡️': 'hunter',
             'パン屋さん 🥖': 'baker',
-            '恋人 ❤️': 'lover',
+            'カップル 💑': 'couple',
             '猫又 🐾': 'nekomata',
             '狐 🦊': 'fox'
         };
@@ -332,11 +343,12 @@
         let roleCounts = {
             wolf: 1, madman: 0, cultist: 0, blackcat: 0,
             villager: 3, seer: 1, medium: 0, hunter: 0,
-            baker: 0, lover: 0, nekomata: 0, fox: 0
+            baker: 0, couple: 0, nekomata: 0, fox: 0
         };
 
         let gameRules = {
             oracle: false,
+            selfGuard: false,
             continuousGuard: false,
             loverSuicide: false,
             confusion: false
@@ -389,7 +401,7 @@
             if (isRandom) {
                 steppers.forEach(s => s.classList.add('hidden'));
                 checkboxes.forEach(chk => {
-                    if (chk.id !== 'role-wolf') chk.classList.remove('hidden');
+                    chk.classList.remove('hidden');
                 });
                 banner.classList.add('hidden');
             } else {
@@ -416,8 +428,8 @@
                 } else {
                     const keys = Object.keys(roleCounts).reverse();
                     for (let k of keys) {
-                        const minVal = (k === 'wolf') ? 1 : 0;
-                        const step = (k === 'lover') ? 2 : 1;
+                        const minVal = 0;
+                        const step = (k === 'couple') ? 2 : 1;
                         if (roleCounts[k] - step >= minVal) {
                             roleCounts[k] -= step;
                             break;
@@ -425,7 +437,7 @@
                     }
                 }
                 currentTotal = getTotalRoleCount();
-                if (currentTotal <= 1) break;
+                if (currentTotal <= 0) break;
             }
             updateStepperUI();
         }
@@ -433,7 +445,7 @@
         function changeCount(key, delta) {
             const maxPlayers = getPlayerNames().length;
             const currentTotal = getTotalRoleCount();
-            const minVal = (key === 'wolf') ? 1 : 0;
+            const minVal = 0;
 
             const nextVal = roleCounts[key] + delta;
             const nextTotal = currentTotal + delta;
@@ -465,8 +477,8 @@
             document.querySelectorAll('.stepper').forEach(stepper => {
                 const key = stepper.getAttribute('data-key');
                 const val = roleCounts[key];
-                const minVal = (key === 'wolf') ? 1 : 0;
-                const step = (key === 'lover') ? 2 : 1;
+                const minVal = 0;
+                const step = (key === 'couple') ? 2 : 1;
 
                 stepper.querySelector('span').innerText = val;
                 stepper.querySelector('.btn-minus').disabled = (val - step < minVal);
@@ -500,6 +512,7 @@
 
         function startGameSetup() {
             gameRules.oracle = document.getElementById('rule-oracle').checked;
+            gameRules.selfGuard = document.getElementById('rule-self-guard').checked;
             gameRules.continuousGuard = document.getElementById('rule-continuous-guard').checked;
             gameRules.loverSuicide = document.getElementById('rule-lover-suicide').checked;
             gameRules.confusion = document.getElementById('rule-confusion').checked;
@@ -511,6 +524,7 @@
 
             if (isRandomMode) {
                 let candidateRoles = [];
+                if (document.getElementById('role-wolf').checked) candidateRoles.push('人狼 🐺');
                 if (document.getElementById('role-madman').checked) candidateRoles.push('狂人 🤪');
                 if (document.getElementById('role-cultist').checked) candidateRoles.push('狂信者 🧠');
                 if (document.getElementById('role-blackcat').checked) candidateRoles.push('黒猫 🐈‍⬛');
@@ -522,10 +536,9 @@
                 if (document.getElementById('role-nekomata').checked) candidateRoles.push('猫又 🐾');
                 if (document.getElementById('role-fox').checked) candidateRoles.push('狐 🦊');
 
-                let hasLover = document.getElementById('role-lover').checked;
-
-                roles = ['人狼 🐺'];
-                if (hasLover) roles.push('恋人 ❤️', '恋人 ❤️');
+                let hasCouple = document.getElementById('role-couple').checked;
+                roles = [];
+                if (hasCouple) roles.push('カップル 💑', 'カップル 💑');
 
                 let remainingSlots = names.length - roles.length;
                 candidateRoles.sort(() => Math.random() - 0.5);
@@ -547,10 +560,20 @@
             playerData = names.map((name, idx) => ({
                 name: name,
                 role: roles[idx],
+                isLover: false,
                 alive: true,
                 confusionRevealed: false,
                 oracleMsg: ''
             }));
+
+            // 追加役職「恋人 💘」のランダム2人付与（全役職対象・人数カウント外）
+            const addLovers = document.getElementById('add-lovers').checked;
+            if (addLovers && playerData.length >= 2) {
+                let indices = playerData.map((_, i) => i);
+                indices.sort(() => Math.random() - 0.5);
+                playerData[indices[0]].isLover = true;
+                playerData[indices[1]].isLover = true;
+            }
 
             // 混乱モード：人狼以外の参加者の中からランダムで1人だけ混乱対象にする
             confusedPlayerIndex = null;
@@ -590,6 +613,18 @@
             updateCheckScreen();
         }
 
+        function isHumanSide(role) {
+            return (
+                role === '村人 👤' ||
+                role === '占い師 🔮' ||
+                role === '霊能者 👻' ||
+                role === '騎士 🛡️' ||
+                role === 'パン屋さん 🥖' ||
+                role === 'カップル 💑' ||
+                role === '猫又 🐾'
+            );
+        }
+
         function updateCheckScreen() {
             const p = playerData[currentIndex];
             document.getElementById('current-player-title').innerText = `${p.name} さんの番です`;
@@ -598,21 +633,50 @@
 
             const displayRoleName = isConfusedNow ? '？？？（混乱中）' : p.role;
             document.getElementById('role-name-text').innerText = `あなたの役職： ${displayRoleName}`;
-            document.getElementById('role-desc-text').innerText = isConfusedNow ? '混乱モード有効のため、あなたの役職名が隠されています。（2日目の夜に判明します）' : (ROLE_DESCRIPTIONS[p.role] || '');
+            
+            const subTextEl = document.getElementById('role-sub-text');
+            if (p.isLover && !isConfusedNow) {
+                subTextEl.innerText = '💘 追加役職：恋人';
+                subTextEl.classList.remove('hidden');
+            } else {
+                subTextEl.innerText = '';
+                subTextEl.classList.add('hidden');
+            }
 
-            let allyText = '';
+            let desc = isConfusedNow ? '混乱モード有効のため、あなたの役職名が隠されています。（2日目の夜に判明します）' : (ROLE_DESCRIPTIONS[p.role] || '');
+            
+            let allyLines = [];
             if (!isConfusedNow) {
                 if (p.role === '人狼 🐺' || p.role === '狂信者 🧠') {
                     const wolves = playerData.filter((other, idx) => idx !== currentIndex && other.role === '人狼 🐺').map(o => o.name);
-                    if (wolves.length > 0) allyText = `🤝 仲間の人狼： ${wolves.join('、')}`;
-                } else if (p.role === '恋人 ❤️') {
-                    const lovers = playerData.filter((other, idx) => idx !== currentIndex && other.role === '恋人 ❤️').map(o => o.name);
-                    if (lovers.length > 0) allyText = `❤️ あなたの恋人： ${lovers.join('、')}`;
+                    if (wolves.length > 0) allyLines.push(`🤝 仲間の人狼： ${wolves.join('、')}`);
+                } else if (p.role === 'カップル 💑') {
+                    const couples = playerData.filter((other, idx) => idx !== currentIndex && other.role === 'カップル 💑').map(o => o.name);
+                    if (couples.length > 0) allyLines.push(`💑 あなたのカップル相手： ${couples.join('、')}`);
                 } else if (p.role === '占い師 🔮' && p.oracleMsg) {
-                    allyText = p.oracleMsg;
+                    allyLines.push(p.oracleMsg);
+                }
+
+                // 追加役職「恋人」の情報表示（相手の名前と相手の役職を知る）
+                if (p.isLover) {
+                    const partner = playerData.find((other, idx) => idx !== currentIndex && other.isLover);
+                    if (partner) {
+                        allyLines.push(`💘 あなたの恋人： ${partner.name} さん（役職：${partner.role}）`);
+                        const bothHuman = isHumanSide(p.role) && isHumanSide(partner.role);
+                        const bothWolf = (p.role === '人狼 🐺' && partner.role === '人狼 🐺');
+                        if (bothHuman) {
+                            desc += '\n\n【恋人ルール】2人とも人間陣営のため、村人陣営が勝利すれば恋人2人も勝利となります！';
+                        } else if (bothWolf) {
+                            desc += '\n\n【恋人ルール】2人とも人狼のため、人狼陣営として勝利を目指します！';
+                        } else {
+                            desc += '\n\n【恋人ルール】異なる陣営同士の恋人のため「第3陣営（恋人陣営）」となります！決着時に2人とも生き残っていれば単独勝利です！';
+                        }
+                    }
                 }
             }
-            document.getElementById('role-ally-text').innerText = allyText;
+
+            document.getElementById('role-ally-text').innerHTML = allyLines.join('<br>');
+            document.getElementById('role-desc-text').innerText = desc;
             
             document.getElementById('role-display').classList.add('hidden');
             document.getElementById('show-btn').classList.remove('hidden');
@@ -677,6 +741,9 @@
                 playerData.forEach(p => counts[p.role] = (counts[p.role] || 0) + 1);
                 let compHtml = '';
                 for (let r in counts) compHtml += `・${r}： <b>${counts[r]}人</b><br>`;
+                if (playerData.some(p => p.isLover)) {
+                    compHtml += `・💘 恋人（追加役職）： <b>2人</b><br>`;
+                }
                 document.getElementById('fixed-composition-list').innerHTML = compHtml;
                 compBox.classList.remove('hidden');
             } else {
@@ -705,7 +772,8 @@
             playerData.forEach(p => {
                 const statusBadge = p.alive ? `<span class="badge-alive">生存</span>` : `<span class="badge-dead">死亡</span>`;
                 const nameClass = p.alive ? '' : 'status-dead';
-                const roleText = (showGmRoles || p.confusionRevealed) ? ` <span style="color:#ff6b81;">（${p.role}）</span>` : '';
+                const loverTag = (showGmRoles && p.isLover) ? ` <span style="color:#ffa502;">[💘恋人]</span>` : '';
+                const roleText = (showGmRoles || p.confusionRevealed) ? ` <span style="color:#ff6b81;">（${p.role}）</span>${loverTag}` : '';
 
                 list.innerHTML += `
                     <li style="padding: 10px; border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center;">
@@ -726,7 +794,6 @@
             }
         }
 
-        // もう一度遊ぶボタン（keepSettings: trueなら設定維持、falseなら完全リセット）
         function resetToSetupScreen(keepSettings) {
             if (timerInterval) clearInterval(timerInterval);
             document.getElementById('gameover-screen').classList.add('hidden');
@@ -801,21 +868,37 @@
         function checkAndApplyLoverSuicide(newsArray) {
             if (!gameRules.loverSuicide) return;
             
-            let loverDeadAdded = true;
-            while (loverDeadAdded) {
-                loverDeadAdded = false;
-                const lovers = playerData.filter(p => p.role === '恋人 ❤️');
+            let deadAdded = true;
+            while (deadAdded) {
+                deadAdded = false;
+                // カップル 💑 の後追いチェック
+                const couples = playerData.filter(p => p.role === 'カップル 💑');
+                if (couples.length === 2) {
+                    const c1 = couples[0];
+                    const c2 = couples[1];
+                    if (!c1.alive && c2.alive) {
+                        c2.alive = false;
+                        newsArray.push(`💔 カップルの死を悲しみ、「${c2.name}」さんが後追い自殺してしまいました...`);
+                        deadAdded = true;
+                    } else if (!c2.alive && c1.alive) {
+                        c1.alive = false;
+                        newsArray.push(`💔 カップルの死を悲しみ、「${c1.name}」さんが後追い自殺してしまいました...`);
+                        deadAdded = true;
+                    }
+                }
+                // 追加役職 恋人 💘 の後追いチェック
+                const lovers = playerData.filter(p => p.isLover);
                 if (lovers.length === 2) {
                     const l1 = lovers[0];
                     const l2 = lovers[1];
                     if (!l1.alive && l2.alive) {
                         l2.alive = false;
-                        newsArray.push(`💔 恋人の死を悲しみ、「${l2.name}」さんが後追い自殺してしまいました...`);
-                        loverDeadAdded = true;
+                        newsArray.push(`💘 恋人の死を悲しみ、「${l2.name}」さんが後追い自殺してしまいました...`);
+                        deadAdded = true;
                     } else if (!l2.alive && l1.alive) {
                         l1.alive = false;
-                        newsArray.push(`💔 恋人の死を悲しみ、「${l1.name}」さんが後追い自殺してしまいました...`);
-                        loverDeadAdded = true;
+                        newsArray.push(`💘 恋人の死を悲しみ、「${l1.name}」さんが後追い自殺してしまいました...`);
+                        deadAdded = true;
                     }
                 }
             }
@@ -955,6 +1038,7 @@
             } else if (actor.role === '騎士 🛡️') {
                 infoBox.innerHTML = confusionNotice + '🛡️ あなたは騎士です。今夜護衛する人を1人選んでください。';
                 alivePlayers.forEach(t => {
+                    if (!gameRules.selfGuard && t.originalIndex === actor.originalIndex) return;
                     if (!gameRules.continuousGuard && t.originalIndex === lastGuardedIndex) return;
 
                     const btn = document.createElement('button');
@@ -1035,29 +1119,45 @@
                 if (!deadNames.includes(playerData[foxKilledIndex].name)) deadNames.push(playerData[foxKilledIndex].name);
             }
 
-            let loverSuicideNames = [];
+            let suicideNames = [];
             if (gameRules.loverSuicide) {
                 let checkAgain = true;
                 while (checkAgain) {
                     checkAgain = false;
-                    const lovers = playerData.filter(p => p.role === '恋人 ❤️');
+                    // カップル 💑
+                    const couples = playerData.filter(p => p.role === 'カップル 💑');
+                    if (couples.length === 2) {
+                        const c1 = couples[0];
+                        const c2 = couples[1];
+                        if (!c1.alive && c2.alive && !deadNames.includes(c2.name) && !suicideNames.includes(c2.name)) {
+                            c2.alive = false;
+                            suicideNames.push(c2.name);
+                            checkAgain = true;
+                        } else if (!c2.alive && c1.alive && !deadNames.includes(c1.name) && !suicideNames.includes(c1.name)) {
+                            c1.alive = false;
+                            suicideNames.push(c1.name);
+                            checkAgain = true;
+                        }
+                    }
+                    // 追加役職 恋人 💘
+                    const lovers = playerData.filter(p => p.isLover);
                     if (lovers.length === 2) {
                         const l1 = lovers[0];
                         const l2 = lovers[1];
-                        if (!l1.alive && l2.alive && !deadNames.includes(l2.name) && !loverSuicideNames.includes(l2.name)) {
+                        if (!l1.alive && l2.alive && !deadNames.includes(l2.name) && !suicideNames.includes(l2.name)) {
                             l2.alive = false;
-                            loverSuicideNames.push(l2.name);
+                            suicideNames.push(l2.name);
                             checkAgain = true;
-                        } else if (!l2.alive && l1.alive && !deadNames.includes(l1.name) && !loverSuicideNames.includes(l1.name)) {
+                        } else if (!l2.alive && l1.alive && !deadNames.includes(l1.name) && !suicideNames.includes(l1.name)) {
                             l1.alive = false;
-                            loverSuicideNames.push(l1.name);
+                            suicideNames.push(l1.name);
                             checkAgain = true;
                         }
                     }
                 }
             }
 
-            let allDead = deadNames.concat(loverSuicideNames);
+            let allDead = deadNames.concat(suicideNames);
             if (allDead.length === 0) {
                 morningNews.push('☀️ 朝になりました。昨晩の犠牲者はいませんでした！');
             } else {
@@ -1070,22 +1170,40 @@
 
         function checkWinCondition() {
             const aliveWolves = playerData.filter(p => p.alive && p.role === '人狼 🐺').length;
+            const initialWolvesCount = playerData.filter(p => p.role === '人狼 🐺').length;
             const aliveFoxes = playerData.filter(p => p.alive && p.role === '狐 🦊').length;
             const aliveHumans = playerData.filter(p => p.alive && p.role !== '人狼 🐺' && p.role !== '狐 🦊').length;
+
+            // 恋人の状態確認
+            const lovers = playerData.filter(p => p.isLover);
+            const bothLoversAlive = (lovers.length === 2 && lovers[0].alive && lovers[1].alive);
+            const loversAreBothHuman = (lovers.length === 2 && isHumanSide(lovers[0].role) && isHumanSide(lovers[1].role));
+            const loversAreBothWolf = (lovers.length === 2 && lovers[0].role === '人狼 🐺' && lovers[1].role === '人狼 🐺');
+            const loversAreThirdParty = (lovers.length === 2 && !loversAreBothHuman && !loversAreBothWolf);
 
             let winner = null;
             let reason = '';
 
             if (aliveWolves === 0) {
-                if (aliveFoxes > 0) {
+                // 決着時：第3陣営の恋人が2人とも生き残っていれば恋人勝利
+                if (loversAreThirdParty && bothLoversAlive) {
+                    winner = '💘 恋人（第3陣営）の単独勝利！';
+                    reason = `人狼が全滅したとき、愛し合う2人（${lovers[0].name}・${lovers[1].name}）が生き残っていました！`;
+                } else if (aliveFoxes > 0) {
                     winner = '🦊 狐（第3陣営）の単独勝利！';
                     reason = '人狼が全滅したとき、狐が生き残っていました！';
                 } else {
                     winner = '🎉 人間陣営の勝利！';
-                    reason = '村に潜んでいた人狼をすべて追放しました！';
+                    reason = (initialWolvesCount >= 2) ? '人狼をすべて（全員）追放しました！' : '村に潜んでいた人狼を追放しました！';
+                    if (loversAreBothHuman && bothLoversAlive) {
+                        reason += `\n💘 人間陣営の恋人（${lovers[0].name}・${lovers[1].name}）も共に勝利しました！`;
+                    }
                 }
             } else if (aliveWolves >= aliveHumans) {
-                if (aliveFoxes > 0) {
+                if (loversAreThirdParty && bothLoversAlive) {
+                    winner = '💘 恋人（第3陣営）の単独勝利！';
+                    reason = `人狼が村を支配したとき、異なる陣営の恋人（${lovers[0].name}・${lovers[1].name}）が2人とも生き残っていました！`;
+                } else if (aliveFoxes > 0) {
                     winner = '🦊 狐（第3陣営）の単独勝利！';
                     reason = '人狼が村を支配したとき、狐が生き残っていました！';
                 } else {
@@ -1108,9 +1226,10 @@
                 finalList.innerHTML = '';
                 playerData.forEach(p => {
                     const badge = p.alive ? '<span class="badge-alive">生存</span>' : '<span class="badge-dead">死亡</span>';
+                    const loverLabel = p.isLover ? ' <span style="color:#ff6b81; font-weight:bold;">+ 💘恋人</span>' : '';
                     finalList.innerHTML += `
                         <li style="padding: 8px; border-bottom: 1px solid #444; display: flex; justify-content: space-between;">
-                            <span><b>${p.name}</b> （${p.role}）</span>
+                            <span><b>${p.name}</b> （${p.role}${loverLabel}）</span>
                             ${badge}
                         </li>`;
                 });
