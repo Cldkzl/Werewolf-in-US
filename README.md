@@ -180,7 +180,7 @@
         
         <div class="role-section" style="margin-top: 20px;">
             <label style="display: flex; align-items: center; justify-content: space-between; margin: 12px 0; font-size: 16px; cursor: pointer;">
-                <span>🔮 占い師へのお告げ（初日に参加者1人の陣営が分かる）</span>
+                <span>🔮 占い師へのお告げ（初日に人間側の安全な人が1人分かる）</span>
                 <input type="checkbox" id="rule-oracle" style="width: 20px; height: 20px;">
             </label>
             <label style="display: flex; align-items: center; justify-content: space-between; margin: 12px 0; font-size: 16px; cursor: pointer;">
@@ -192,7 +192,7 @@
                 <input type="checkbox" id="rule-lover-suicide" style="width: 20px; height: 20px;">
             </label>
             <label style="display: flex; align-items: center; justify-content: space-between; margin: 12px 0; font-size: 16px; cursor: pointer;">
-                <span>🌀 混乱モード（役職名が一定時間「？？？」になる）</span>
+                <span>🌀 混乱モード（参加者からランダム1人だけ役職が分かりません。2日目の夜に判明）</span>
                 <input type="checkbox" id="rule-confusion" style="width: 20px; height: 20px;">
             </label>
         </div>
@@ -294,7 +294,7 @@
         <hr style="border-color: #444; margin: 20px 0;">
         <h3>最終結果・役職一覧</h3>
         <ul id="final-player-list" style="list-style: none; padding: 0; text-align: left;"></ul>
-        <button onclick="location.reload()">もう一度遊ぶ</button>
+        <button onclick="resetToSetupScreen()">もう一度遊ぶ（設定を保持）</button>
     </div>
 
     <script>
@@ -361,6 +361,7 @@
         let wolfTargetIndex = null;
         let guardTargetIndex = null;
         let foxKilledIndex = null;
+        let confusedPlayerIndex = null; // 混乱モードの対象者インデックス
 
         window.onload = () => {
             toggleMode();
@@ -550,14 +551,21 @@
                 oracleMsg: ''
             }));
 
+            // 混乱モード：ランダムに1人だけ混乱対象にする
+            confusedPlayerIndex = null;
+            if (gameRules.confusion) {
+                confusedPlayerIndex = Math.floor(Math.random() * playerData.length);
+            }
+
+            // 占い師へのお告げ（※人狼 🐺 以外はすべて人間側扱いにする）
             if (gameRules.oracle) {
                 playerData.forEach((p, idx) => {
                     if (p.role === '占い師 🔮') {
                         const otherPlayers = playerData.filter((_, otherIdx) => otherIdx !== idx);
                         if (otherPlayers.length > 0) {
                             const target = otherPlayers[Math.floor(Math.random() * otherPlayers.length)];
-                            const isWolfSide = (target.role === '人狼 🐺' || target.role === '狂人 🤪' || target.role === '狂信者 🧠' || target.role === '黒猫 🐈‍⬛');
-                            const sideText = isWolfSide ? '【人狼側】' : '【人間側】';
+                            const isWolf = (target.role === '人狼 🐺');
+                            const sideText = isWolf ? '【人狼側】' : '【人間側】';
                             p.oracleMsg = `🔮 【お告げ】神託により、${target.name} さんは ${sideText} であることが分かりました！`;
                         }
                     }
@@ -578,12 +586,15 @@
             const p = playerData[currentIndex];
             document.getElementById('current-player-title').innerText = `${p.name} さんの番です`;
             
-            const displayRoleName = gameRules.confusion ? '？？？（混乱中）' : p.role;
+            // 混乱モード判定：その人だけ役職を隠す（2日目の夜以降、または本人がすでに明かされている場合以外）
+            let isConfusedNow = (gameRules.confusion && currentIndex === confusedPlayerIndex && !p.confusionRevealed && dayCount === 1);
+
+            const displayRoleName = isConfusedNow ? '？？？（混乱中）' : p.role;
             document.getElementById('role-name-text').innerText = `あなたの役職： ${displayRoleName}`;
-            document.getElementById('role-desc-text').innerText = gameRules.confusion ? '混乱モード有効のため、役職名が隠されています。' : (ROLE_DESCRIPTIONS[p.role] || '');
+            document.getElementById('role-desc-text').innerText = isConfusedNow ? '混乱モード有効のため、あなたの役職名が隠されています。（2日目の夜に判明します）' : (ROLE_DESCRIPTIONS[p.role] || '');
 
             let allyText = '';
-            if (!gameRules.confusion) {
+            if (!isConfusedNow) {
                 if (p.role === '人狼 🐺' || p.role === '狂信者 🧠') {
                     const wolves = playerData.filter((other, idx) => idx !== currentIndex && other.role === '人狼 🐺').map(o => o.name);
                     if (wolves.length > 0) allyText = `🤝 仲間の人狼： ${wolves.join('、')}`;
@@ -706,6 +717,13 @@
             if (confirm('ゲームを最初からやり直しますか？')) {
                 location.reload();
             }
+        }
+
+        // ホーム画面の設定を保持したままリセットする関数（もう一度遊ぶ用）
+        function resetToSetupScreen() {
+            if (timerInterval) clearInterval(timerInterval);
+            document.getElementById('gameover-screen').classList.add('hidden');
+            document.getElementById('setup-screen').classList.remove('hidden');
         }
 
         function startVoting(candidatesFilterIndices) {
@@ -884,8 +902,15 @@
             targetsDiv.innerHTML = '';
             doneBtn.classList.add('hidden');
 
+            // 2日目の夜に混乱モードの本当の役職を明かす処理
+            let confusionNotice = '';
+            if (gameRules.confusion && dayCount === 2 && actor.originalIndex === confusedPlayerIndex && !actor.confusionRevealed) {
+                actor.confusionRevealed = true;
+                confusionNotice = `🌀 <b>【混乱解除】</b> 昨夜まで隠されていたあなたの本当の役職は <b>${actor.role}</b> でした！<br><br>`;
+            }
+
             if (actor.role === '人狼 🐺') {
-                infoBox.innerText = '🐺 あなたは人狼です。今夜襲撃する人を1人選んでください。';
+                infoBox.innerHTML = confusionNotice + '🐺 あなたは人狼です。今夜襲撃する人を1人選んでください。';
                 alivePlayers.forEach(t => {
                     if (t.role !== '人狼 🐺') {
                         const btn = document.createElement('button');
@@ -899,7 +924,7 @@
                     }
                 });
             } else if (actor.role === '占い師 🔮') {
-                infoBox.innerText = '🔮 あなたは占い師です。今夜占う人を1人選んでください。';
+                infoBox.innerHTML = confusionNotice + '🔮 あなたは占い師です。今夜占う人を1人選んでください。';
                 alivePlayers.forEach(t => {
                     if (t.originalIndex !== actor.originalIndex) {
                         const btn = document.createElement('button');
@@ -917,7 +942,7 @@
                     }
                 });
             } else if (actor.role === '騎士 🛡️') {
-                infoBox.innerText = '🛡️ あなたは騎士です。今夜護衛する人を1人選んでください。';
+                infoBox.innerHTML = confusionNotice + '🛡️ あなたは騎士です。今夜護衛する人を1人選んでください。';
                 alivePlayers.forEach(t => {
                     if (!gameRules.continuousGuard && t.originalIndex === lastGuardedIndex) return;
 
@@ -933,10 +958,10 @@
                 });
             } else if (actor.role === '霊能者 👻') {
                 const execMsg = lastExecutedPlayer ? `昨日処刑された <b>${lastExecutedPlayer.name}</b> さんは <span style="color:${lastExecutedPlayer.role === '人狼 🐺' ? '#ff4757' : '#2ed573'};">【${lastExecutedPlayer.role === '人狼 🐺' ? '人狼' : '人間'}】</span> でした。` : 'まだ処刑された人はいません。';
-                infoBox.innerHTML = `👻 霊能結果：<br>${execMsg}`;
+                infoBox.innerHTML = confusionNotice + `👻 霊能結果：<br>${execMsg}`;
                 doneBtn.classList.remove('hidden');
             } else {
-                infoBox.innerHTML = `あなたの役職（${actor.role}）は夜に特別な操作はありません。<br>下の3つのボタンから好きなものを1つ押してください：`;
+                infoBox.innerHTML = confusionNotice + `あなたの役職（${actor.role}）は夜に特別な操作はありません。<br>下の3つのボタンから好きなものを1つ押してください：`;
                 
                 const funButtons = [
                     "🌙 今夜はぐっすり眠れそうです",
@@ -954,7 +979,7 @@
                             "🦇 夜風が少し冷たく感じました。",
                             "🍀 平穏な夜のひとときを過ごしました。"
                         ];
-                        infoBox.innerHTML = `💡 <b>結果:</b> ${msgs[i]}`;
+                        infoBox.innerHTML = confusionNotice + `💡 <b>結果:</b> ${msgs[i]}`;
                         targetsDiv.innerHTML = '';
                         doneBtn.classList.remove('hidden');
                     };
