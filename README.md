@@ -325,7 +325,7 @@
     <script>
         const ROLE_DESCRIPTIONS = {
             '人狼 🐺': '【人狼陣営】毎晩1人を襲撃できます。人間陣営を人狼と同数以下まで減らせば勝利です。',
-            '狂人 🤪': '【人狼陣営】特殊能力はありませんが、人狼が勝つと勝利です。占い結果は用語「人間」と出ます。',
+            '狂人 🤪': '【人狼陣営】特殊能力はありませんが、人狼が勝つと勝利です。占い結果は「人間」と出ます。',
             '狂信者 🧠': '【人狼陣営】最初から誰が人狼かを知っている狂人です。人狼をサポートしましょう。',
             '黒猫 🐈‍⬛': '【人狼陣営】人狼の味方です。昼に処刑されると、生存者から1人道連れにします。',
             '村人 👤': '【人間陣営】特殊能力はありません。推理と議論で人狼を見つけ出しましょう。',
@@ -1081,8 +1081,11 @@
                     previousChoices.push({ wolfName: wolfObj.name, targetIdx: targetIdx, targetName: targetObj.name });
                 }
 
-                // 一番上の選択肢（前狼の選択）を表示
-                if (previousChoices.length > 0) {
+                if (previousChoices.length === 0) {
+                    // 1人目の人狼：直接参加者（人狼以外）を選べるように一覧表示
+                    renderOtherTargetsList(actor, targetsDiv, []);
+                } else {
+                    // 2人目以降の人狼：上の選択肢に前の人狼たちの選択を表示し、下に「ほかの人を選ぶ」ボタンを表示
                     let topChoiceBox = document.createElement('div');
                     topChoiceBox.style.marginBottom = '12px';
                     topChoiceBox.innerHTML = `<div style="font-size: 13px; color: #ff6b81; font-weight: bold; margin-bottom: 4px;">📜 前の人狼たちの選択肢：</div>`;
@@ -1099,17 +1102,21 @@
                         topChoiceBox.appendChild(btn);
                     });
                     targetsDiv.appendChild(topChoiceBox);
-                }
 
-                // 「他の人を選ぶ」ボタン
-                const otherBtn = document.createElement('button');
-                otherBtn.className = 'secondary';
-                otherBtn.innerText = '👤 ほかの人を選ぶ（リストを表示）';
-                otherBtn.onclick = () => {
-                    otherBtn.classList.add('hidden');
-                    renderOtherTargetsList(actor, targetsDiv);
-                };
-                targetsDiv.appendChild(otherBtn);
+                    const alreadyChosenIndices = previousChoices.map(pc => pc.targetIdx);
+                    const remainingCount = alivePlayers.filter(t => t.role !== '人狼 🐺' && !alreadyChosenIndices.includes(t.originalIndex)).length;
+
+                    if (remainingCount > 0) {
+                        const otherBtn = document.createElement('button');
+                        otherBtn.className = 'secondary';
+                        otherBtn.innerText = '👤 ほかの人を選ぶ';
+                        otherBtn.onclick = () => {
+                            otherBtn.classList.add('hidden');
+                            renderOtherTargetsList(actor, targetsDiv, alreadyChosenIndices);
+                        };
+                        targetsDiv.appendChild(otherBtn);
+                    }
+                }
 
             } else if (actor.role === '占い師 🔮') {
                 infoBox.innerHTML = confusionNotice + '🔮 あなたは占い師です。今夜占う人を1人選んでください。';
@@ -1136,9 +1143,9 @@
                     if (!gameRules.continuousGuard && t.originalIndex === lastGuardedIndex) return;
 
                     const btn = document.createElement('button');
-                        btn.className = 'action-target';
-                        btn.innerText = `🛡️ ${t.name} を護衛する`;
-                        btn.onclick = () => {
+                    btn.className = 'action-target';
+                    btn.innerText = `🛡️ ${t.name} を護衛する`;
+                    btn.onclick = () => {
                         guardTargetIndex = t.originalIndex;
                         lastGuardedIndex = t.originalIndex;
                         nextNightPlayer();
@@ -1177,16 +1184,18 @@
             }
         }
 
-        function renderOtherTargetsList(actor, container) {
-            const listTitle = document.createElement('div');
-            listTitle.style.marginTop = '10px';
-            listTitle.style.fontSize = '14px';
-            listTitle.style.color = '#aaa';
-            listTitle.innerText = '―― 人狼以外の参加者から選択 ――';
-            container.appendChild(listTitle);
+        function renderOtherTargetsList(actor, container, excludeIndices) {
+            if (excludeIndices.length > 0) {
+                const listTitle = document.createElement('div');
+                listTitle.style.marginTop = '10px';
+                listTitle.style.fontSize = '14px';
+                listTitle.style.color = '#aaa';
+                listTitle.innerText = '―― まだ選ばれていない参加者 ――';
+                container.appendChild(listTitle);
+            }
 
             alivePlayers.forEach(t => {
-                if (t.role !== '人狼 🐺') {
+                if (t.role !== '人狼 🐺' && !excludeIndices.includes(t.originalIndex)) {
                     const btn = document.createElement('button');
                     btn.className = 'action-target';
                     btn.innerText = `🩸 ${t.name} を襲撃する`;
@@ -1209,7 +1218,6 @@
             let morningNews = [];
             let deadNames = [];
 
-            // 複数人狼の投票集計・決定ロジック
             let targetOriginalIndex = null;
             let wolfIndices = Object.keys(wolfVotes);
 
@@ -1234,7 +1242,6 @@
                 if (topTargets.length === 1) {
                     targetOriginalIndex = topTargets[0];
                 } else {
-                    // 同率の場合は最後の人狼の投票を採用
                     let lastWolfIdx = wolfIndices[wolfIndices.length - 1];
                     targetOriginalIndex = wolfVotes[lastWolfIdx];
                 }
