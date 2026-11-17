@@ -192,7 +192,7 @@
                 <input type="checkbox" id="rule-lover-suicide" style="width: 20px; height: 20px;">
             </label>
             <label style="display: flex; align-items: center; justify-content: space-between; margin: 12px 0; font-size: 16px; cursor: pointer;">
-                <span>🌀 混乱モード（参加者からランダム1人だけ役職が分かりません。2日目の夜に判明）</span>
+                <span>🌀 混乱モード（人狼以外の誰か1人だけ役職が不明。2日目の夜に判明）</span>
                 <input type="checkbox" id="rule-confusion" style="width: 20px; height: 20px;">
             </label>
         </div>
@@ -294,7 +294,8 @@
         <hr style="border-color: #444; margin: 20px 0;">
         <h3>最終結果・役職一覧</h3>
         <ul id="final-player-list" style="list-style: none; padding: 0; text-align: left;"></ul>
-        <button onclick="resetToSetupScreen()">もう一度遊ぶ（設定を保持）</button>
+        <button onclick="resetToSetupScreen(true)">🔄 もう一度遊ぶ（設定を維持）</button>
+        <button class="secondary" onclick="resetToSetupScreen(false)">⚙️ 初期設定に戻して遊ぶ（デフォルト）</button>
     </div>
 
     <script>
@@ -302,7 +303,7 @@
             '人狼 🐺': '【人狼陣営】毎晩1人を襲撃できます。人間陣営を人狼と同数以下まで減らせば勝利です。',
             '狂人 🤪': '【人狼陣営】特殊能力はありませんが、人狼が勝つと勝利です。占い結果は「人間」と出ます。',
             '狂信者 🧠': '【人狼陣営】最初から誰が人狼かを知っている狂人です。人狼をサポートしましょう。',
-            '黒猫 🐈‍⬛': '【人狼陣営】人狼の味方です。昼に処刑されると、生存者からランダムで1人を道連れにします。',
+            '黒猫 🐈‍⬛': '【人狼陣営】人狼の味方です。昼に処刑されると、生存者から1人道連れにします。',
             '村人 👤': '【人間陣営】特殊能力はありません。推理と議論で人狼を見つけ出しましょう。',
             '占い師 🔮': '【人間陣営】毎晩1人を占い、「人狼」か「人間」かを知ることができます。（狐を占うと呪殺）',
             '霊能者 👻': '【人間陣営】前の日の昼に処刑された人が「人狼」だったか「人間」だったかを知ることができます。',
@@ -361,7 +362,7 @@
         let wolfTargetIndex = null;
         let guardTargetIndex = null;
         let foxKilledIndex = null;
-        let confusedPlayerIndex = null; // 混乱モードの対象者インデックス
+        let confusedPlayerIndex = null;
 
         window.onload = () => {
             toggleMode();
@@ -551,13 +552,20 @@
                 oracleMsg: ''
             }));
 
-            // 混乱モード：ランダムに1人だけ混乱対象にする
+            // 混乱モード：人狼以外の参加者の中からランダムで1人だけ混乱対象にする
             confusedPlayerIndex = null;
             if (gameRules.confusion) {
-                confusedPlayerIndex = Math.floor(Math.random() * playerData.length);
+                const nonWolfIndices = playerData
+                    .map((p, i) => ({ role: p.role, index: i }))
+                    .filter(p => p.role !== '人狼 🐺')
+                    .map(p => p.index);
+
+                if (nonWolfIndices.length > 0) {
+                    confusedPlayerIndex = nonWolfIndices[Math.floor(Math.random() * nonWolfIndices.length)];
+                }
             }
 
-            // 占い師へのお告げ（※人狼 🐺 以外はすべて人間側扱いにする）
+            // 占い師へのお告げ
             if (gameRules.oracle) {
                 playerData.forEach((p, idx) => {
                     if (p.role === '占い師 🔮') {
@@ -586,7 +594,6 @@
             const p = playerData[currentIndex];
             document.getElementById('current-player-title').innerText = `${p.name} さんの番です`;
             
-            // 混乱モード判定：その人だけ役職を隠す（2日目の夜以降、または本人がすでに明かされている場合以外）
             let isConfusedNow = (gameRules.confusion && currentIndex === confusedPlayerIndex && !p.confusionRevealed && dayCount === 1);
 
             const displayRoleName = isConfusedNow ? '？？？（混乱中）' : p.role;
@@ -678,7 +685,7 @@
 
             if (dayCount >= 2) {
                 const bakerAlive = playerData.some(p => p.alive && p.role === 'パン屋さん 🥖');
-                if (bakerAlive) newsArray.push('🥖 今日もパン屋さんが美味しいパンを焼き上げました！');
+                if (bakerAlive) newsArray.push('🥖 今日もパン屋さんが美味しいパンが焼き上げました！');
             }
 
             const newsBox = document.getElementById('morning-news');
@@ -719,11 +726,16 @@
             }
         }
 
-        // ホーム画面の設定を保持したままリセットする関数（もう一度遊ぶ用）
-        function resetToSetupScreen() {
+        // もう一度遊ぶボタン（keepSettings: trueなら設定維持、falseなら完全リセット）
+        function resetToSetupScreen(keepSettings) {
             if (timerInterval) clearInterval(timerInterval);
             document.getElementById('gameover-screen').classList.add('hidden');
-            document.getElementById('setup-screen').classList.remove('hidden');
+
+            if (keepSettings) {
+                document.getElementById('setup-screen').classList.remove('hidden');
+            } else {
+                location.reload();
+            }
         }
 
         function startVoting(candidatesFilterIndices) {
@@ -902,7 +914,6 @@
             targetsDiv.innerHTML = '';
             doneBtn.classList.add('hidden');
 
-            // 2日目の夜に混乱モードの本当の役職を明かす処理
             let confusionNotice = '';
             if (gameRules.confusion && dayCount === 2 && actor.originalIndex === confusedPlayerIndex && !actor.confusionRevealed) {
                 actor.confusionRevealed = true;
