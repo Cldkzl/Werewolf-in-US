@@ -133,7 +133,7 @@
                 </div>
             </div>
             <div class="role-row">
-                <label class="role-left"><input type="checkbox" id="role-trapper"> <span><b>罠師 🪤</b><span class="role-desc">1度だけ自宅に罠を設置。次の夜に訪れた最初の1人（人狼・占い師・騎士すべて）を返り討ちにする。</span></span></label>
+                <label class="role-left"><input type="checkbox" id="role-trapper"> <span><b>罠師 🪤</b><span class="role-desc">1度だけ自宅に罠を設置。次の夜に訪れた人を返り討ちにする（人狼複数ならランダム1人死亡）。</span></span></label>
                 <div class="stepper" data-key="trapper">
                     <button type="button" class="btn-minus" onclick="changeCount('trapper', -1)">－</button>
                     <span id="count-trapper">0</span>
@@ -141,7 +141,7 @@
                 </div>
             </div>
             <div class="role-row">
-                <label class="role-left"><input type="checkbox" id="role-drunk"> <span><b>酔っぱらい 🍺</b><span class="role-desc">1日目は他人の役職と思い込んで行動（能力効果なし・占い完全ランダム）。2日目の夜に村人だと気づく。</span></span></label>
+                <label class="role-left"><input type="checkbox" id="role-drunk"> <span><b>酔っぱらい 🍺</b><span class="role-desc">1日目は他人の役職と思い込んで行動。2日目の夜に村人だと気づく。</span></span></label>
                 <div class="stepper" data-key="drunk">
                     <button type="button" class="btn-minus" onclick="changeCount('drunk', -1)">－</button>
                     <span id="count-drunk">0</span>
@@ -348,8 +348,8 @@
             '占い師 🔮': '【人間陣営】毎晩1人を占い、「人狼」か「人間」かを知ることができます。（狐を占うと呪殺）',
             '霊能者 👻': '【人間陣営】前の日の昼に処刑された人が「人狼」だったか「人間」だったかを知ることができます。',
             '騎士 🛡️': '【人間陣営】毎晩1人を守り、人狼の襲撃から救うことができます。',
-            '罠師 🪤': '【人間陣営】1ゲームに1回、夜に自分の家へ罠を設置できます。設置した次の夜に自宅へ訪れた最初の1人（人狼・占い師・騎士すべて）を返り討ちにして殺害します。誰も来なくてもその夜で罠は壊れます。',
-            '酔っぱらい 🍺': '【人間陣営】1日目は酔っているため別の役職だと思い込んで行動します（能力の効果はなく、占い結果も完全ランダム）。2日目の夜に酔いが覚めて自分が村人だと気づきます。',
+            '罠師 🪤': '【人間陣営】1ゲームに1回、夜に自分の家へ罠を設置できます。設置した次の夜に訪れた人を返り討ちにします（複数人狼ならランダム1人死亡）。',
+            '酔っぱらい 🍺': '【人間陣営】1日目は酔っているため別の役職だと思い込んで行動します。2日目の夜に酔いが覚めて自分が村人だと気づきます。',
             'パン屋さん 🥖': '【人間陣営】生存している限り、毎朝美味しいパンが焼けたことが村全体に知らされます。',
             'カップル 💑': '【人間陣営】もう1人のカップルとお互いに結ばれています。',
             '猫又 🐾': '【人間陣営】夜に襲撃されると人狼を1匹道連れにします。（昼に処刑されるとランダム道連れ）',
@@ -409,9 +409,10 @@
 
         let nightActorIndex = 0;
         let wolfVotes = {};
-        let nightVisits = []; // その夜の訪問イベント記録 [{ visitorIndex, targetIndex, type }]
+        let nightVisits = [];
         let foxKilledIndex = null;
         let confusedPlayerIndex = null;
+        let trapKillTriggeredByWolves = false; // 人狼が罠で全滅したかどうか
 
         window.onload = () => {
             toggleMode();
@@ -607,14 +608,11 @@
                 alive: true,
                 confusionRevealed: false,
                 oracleMsg: '',
-                // 罠師用ステータス: 'unused'(未使用), 'setting'(今夜設置中・次の夜発動), 'active'(発動中), 'used'(使用済み)
                 trapState: 'unused',
-                // 酔っぱらい用ステータス
                 fakeRole: null,
                 drunkSobered: false
             }));
 
-            // 酔っぱらいの思い込み役職を「参加した人の中の自分以外の役職」から割り当て
             playerData.forEach((p, idx) => {
                 if (p.role === '酔っぱらい 🍺') {
                     const otherRoles = playerData
@@ -667,6 +665,7 @@
             dayCount = 1;
             lastExecutedPlayer = null;
             lastGuardedIndex = null;
+            trapKillTriggeredByWolves = false;
 
             document.getElementById('rule-screen').classList.add('hidden');
             document.getElementById('check-screen').classList.remove('hidden');
@@ -693,8 +692,6 @@
             document.getElementById('current-player-title').innerText = `${p.name} さんの番です`;
             
             let isConfusedNow = (gameRules.confusion && currentIndex === confusedPlayerIndex && !p.confusionRevealed && dayCount === 1);
-            
-            // 酔っぱらい（1日目）は思い込んでいる役職を表示
             let shownRole = (p.role === '酔っぱらい 🍺' && !p.drunkSobered) ? p.fakeRole : p.role;
 
             const displayRoleName = isConfusedNow ? '？？？（混乱中）' : shownRole;
@@ -1076,7 +1073,6 @@
         function proceedToNight() {
             if (checkWinCondition()) return;
 
-            // 前夜に罠を設置していた罠師の罠を「今夜発動中(active)」に昇格させる
             playerData.forEach(p => {
                 if (p.role === '罠師 🪤' && p.trapState === 'setting') {
                     p.trapState = 'active';
@@ -1121,13 +1117,11 @@
 
             let prefixNotice = '';
 
-            // 混乱モード解除（2日目の夜）
             if (gameRules.confusion && dayCount === 2 && actorOrigIdx === confusedPlayerIndex && !actor.confusionRevealed) {
                 actor.confusionRevealed = true;
                 prefixNotice += `🌀 <b>【混乱解除】</b> 昨夜まで隠されていたあなたの本当の役職は <b>${actor.role}</b> でした！<br><br>`;
             }
 
-            // 酔っぱらいの酔い覚まし（2日目の夜）
             let isDrunkActingFake = false;
             if (actor.role === '酔っぱらい 🍺') {
                 if (dayCount >= 2 && !actor.drunkSobered) {
@@ -1138,7 +1132,6 @@
                 }
             }
 
-            // 実際に画面上で振る舞う役職
             const actingRole = isDrunkActingFake ? actor.fakeRole : actor.role;
 
             if (actingRole === '人狼 🐺') {
@@ -1150,7 +1143,6 @@
                 }
                 infoBox.innerHTML = noticeHtml;
 
-                // 本物の人狼の投票のみ集計に表示（酔っぱらいの偽投票は反映しない）
                 let targetMap = {};
                 for (let wIndex in wolfVotes) {
                     let targetIdx = wolfVotes[wIndex];
@@ -1219,20 +1211,17 @@
                         btn.onclick = () => {
                             const targetPlayer = playerData[t.originalIndex];
                             if (isDrunkActingFake) {
-                                // 酔っぱらいは完全ランダム結果・呪殺なし・訪問判定なし
                                 const randomWolf = Math.random() < 0.5;
                                 targetsDiv.innerHTML = '';
                                 infoBox.innerHTML = `🔮 占い結果：<b>${targetPlayer.name}</b> さんは <span style="color:${randomWolf ? '#ff4757' : '#2ed573'}; font-size:18px;">【${randomWolf ? '人狼' : '人間'}】</span> です。`;
                                 doneBtn.classList.remove('hidden');
                             } else {
-                                // 訪問記録（罠判定用）
                                 nightVisits.push({
                                     visitorIndex: actorOrigIdx,
                                     targetIndex: t.originalIndex,
                                     type: 'seer'
                                 });
 
-                                // もし相手が罠発動中の罠師なら返り討ちに遭い、占い結果も得られない
                                 if (targetPlayer.role === '罠師 🪤' && targetPlayer.trapState === 'active') {
                                     targetsDiv.innerHTML = '';
                                     infoBox.innerHTML = `✨ <b>${targetPlayer.name}</b> さんのもとへ占いに向かいました...`;
@@ -1283,7 +1272,7 @@
                         if (!isDrunkActingFake) {
                             actor.trapState = 'setting';
                         }
-                        infoBox.innerHTML = prefixNotice + '✅ 自宅に罠を仕掛けました！次の夜に訪れた最初の1人を返り討ちにします。';
+                        infoBox.innerHTML = prefixNotice + '✅ 自宅に罠を仕掛けました！次の夜に訪れた人を返り討みにします。';
                         targetsDiv.innerHTML = '';
                         doneBtn.classList.remove('hidden');
                     };
@@ -1298,7 +1287,7 @@
                     targetsDiv.appendChild(skipBtn);
 
                 } else if (actor.trapState === 'active') {
-                    infoBox.innerHTML = prefixNotice + '🪤 昨夜設置した罠が<b>今夜発動中</b>です！<br>今夜あなたの家を訪れた最初の1人（人狼・占い師・騎士すべて）を返り討ちにします。';
+                    infoBox.innerHTML = prefixNotice + '🪤 昨夜設置した罠が<b>今夜発動中</b>です！<br>今夜あなたのもとを訪れた人を返り討ちにします。';
                     doneBtn.classList.remove('hidden');
                 } else {
                     infoBox.innerHTML = prefixNotice + '🪤 あなたの罠はすでに使用済み（破壊済み）です。今夜は特別な行動はありません。';
@@ -1353,7 +1342,6 @@
             }
 
             alivePlayers.forEach(t => {
-                // 酔っぱらい（人狼思い込み）の場合は自分以外を選択可能、本物の人狼は人狼以外を選択可能
                 const canSelect = isDrunkActingFake
                     ? (t.originalIndex !== actorOrigIdx)
                     : (t.role !== '人狼 🐺' && !excludeIndices.includes(t.originalIndex));
@@ -1382,10 +1370,12 @@
         function resolveNightResults() {
             let morningNews = [];
             let deadNames = [];
+            let trapDeadNames = []; // 罠によって死亡した人の名前リスト（役職非公開用）
 
-            // 1. 人狼の最終襲撃ターゲットと、代表訪問人狼の決定
+            trapKillTriggeredByWolves = false;
+
+            // 1. 人狼の襲撃ターゲット決定と、すべての投票した人狼の訪問を記録
             let targetOriginalIndex = null;
-            let attackingWolfIndex = null;
             let wolfIndices = Object.keys(wolfVotes).map(Number);
 
             if (wolfIndices.length > 0) {
@@ -1413,56 +1403,85 @@
                     targetOriginalIndex = wolfVotes[lastWolfIdx];
                 }
 
-                // そのターゲットに投票した人狼のうち最初に行動した人狼を襲撃実行者とする
-                attackingWolfIndex = wolfIndices.find(wIdx => wolfVotes[wIdx] === targetOriginalIndex);
-                if (attackingWolfIndex !== undefined && targetOriginalIndex !== null) {
-                    nightVisits.push({
-                        visitorIndex: attackingWolfIndex,
-                        targetIndex: targetOriginalIndex,
-                        type: 'wolf'
-                    });
-                }
+                // 人狼全員がそのターゲットを襲撃するために訪れたとして記録
+                wolfIndices.forEach(wIdx => {
+                    if (wolfVotes[wIdx] === targetOriginalIndex) {
+                        nightVisits.push({
+                            visitorIndex: wIdx,
+                            targetIndex: targetOriginalIndex,
+                            type: 'wolf'
+                        });
+                    }
+                });
             }
 
-            // 2. 罠の判定（nightVisits の時系列順＝行動順で処理）
-            // 罠が active な罠師の家に最初に来た1人が死亡し、その瞬間に罠は壊れる（used）
+            // 2. 罠の判定処理
             let effectiveGuardTarget = null;
             let wolfAttackBlockedByTrap = false;
 
+            // 罠師の家を訪れた訪問者を収集
+            let trapTargetVisitedList = [];
             nightVisits.forEach(visit => {
-                const visitor = playerData[visit.visitorIndex];
                 const target = playerData[visit.targetIndex];
-
-                // 訪問者がすでに罠などで死亡している場合は行動無効
-                if (!visitor.alive) return;
-
                 if (target.role === '罠師 🪤' && target.trapState === 'active') {
-                    // 罠発動！最初に来た1人を返り討ちにして殺害し、罠は壊れる
-                    visitor.alive = false;
-                    if (!deadNames.includes(visitor.name)) {
-                        deadNames.push(visitor.name);
-                    }
-                    target.trapState = 'used';
-
-                    if (visit.type === 'wolf') {
-                        wolfAttackBlockedByTrap = true;
-                    }
-                } else {
-                    // 罠にかからなかった場合のみ行動が有効になる
-                    if (visit.type === 'guard') {
-                        effectiveGuardTarget = visit.targetIndex;
-                    }
+                    trapTargetVisitedList.push(visit);
                 }
             });
 
-            // 誰も引っかからなかった場合でも、発動中だった罠はその夜が終わると壊れる
+            if (trapTargetVisitedList.length > 0) {
+                const trapper = playerData.find(p => p.role === '罠師 🪤');
+                // 罠師自身が生存している場合のみ発動
+                if (trapper && trapper.alive) {
+                    // 人狼が2人以上含まれているかチェック
+                    let wolfVisitsToTrap = trapTargetVisitedList.filter(v => playerData[v.visitorIndex].role === '人狼 🐺' && playerData[v.visitorIndex].alive);
+
+                    if (wolfVisitsToTrap.length >= 2) {
+                        // 人狼が2人以上同時期に来た場合：ランダムで1人の人狼が罠によって死亡
+                        let unluckyWolfVisit = wolfVisitsToTrap[Math.floor(Math.random() * wolfVisitsToTrap.length)];
+                        let visitor = playerData[unluckyWolfVisit.visitorIndex];
+                        visitor.alive = false;
+                        trapDeadNames.push(visitor.name);
+
+                        wolfAttackBlockedByTrap = true; // 襲撃自体は阻止または軽減される
+                        trapKillTriggeredByWolves = true;
+                    } else {
+                        // 騎士や占い師、または人狼1人の場合：最初に来た1人が罠によって死亡
+                        let firstVisit = trapTargetVisitedList[0];
+                        let visitor = playerData[firstVisit.visitorIndex];
+                        if (visitor.alive) {
+                            visitor.alive = false;
+                            trapDeadNames.push(visitor.name);
+
+                            if (firstVisit.type === 'wolf') {
+                                wolfAttackBlockedByTrap = true;
+                                trapKillTriggeredByWolves = true;
+                            }
+                        }
+                    }
+
+                    // 罠は1度発動したら壊れる
+                    trapper.trapState = 'used';
+                }
+            }
+
+            // 誰も引っかからなかった場合でも、設置されていた罠はその夜が終わると壊れる
             playerData.forEach(p => {
                 if (p.role === '罠師 🪤' && p.trapState === 'active') {
                     p.trapState = 'used';
                 }
             });
 
-            // 3. 人狼の襲撃結果の反映
+            // 罠にかからなかった人たちの通常行動処理（護衛など）
+            nightVisits.forEach(visit => {
+                const visitor = playerData[visit.visitorIndex];
+                if (!visitor.alive) return; // 罠で死んだ人は行動無効
+
+                if (visit.type === 'guard') {
+                    effectiveGuardTarget = visit.targetIndex;
+                }
+            });
+
+            // 3. 通常の人狼襲撃結果の反映
             if (targetOriginalIndex !== null && !wolfAttackBlockedByTrap) {
                 const target = playerData[targetOriginalIndex];
                 if (targetOriginalIndex === effectiveGuardTarget) {
@@ -1471,31 +1490,25 @@
                     // 狐は襲撃では死亡しない
                 } else if (target.alive) {
                     target.alive = false;
-                    if (!deadNames.includes(target.name)) {
-                        deadNames.push(target.name);
-                    }
+                    deadNames.push(target.name);
 
                     if (target.role === '猫又 🐾') {
                         const aliveWolves = playerData.map((p, i) => ({ ...p, idx: i })).filter(p => p.alive && p.role === '人狼 🐺');
                         if (aliveWolves.length > 0) {
                             const deadWolf = aliveWolves[Math.floor(Math.random() * aliveWolves.length)];
                             playerData[deadWolf.idx].alive = false;
-                            if (!deadNames.includes(deadWolf.name)) {
-                                deadNames.push(deadWolf.name);
-                            }
+                            deadNames.push(deadWolf.name);
                         }
                     }
                 }
             }
 
-            // 4. 占い師による狐の呪殺（占い師自身が罠で死んでいない場合のみ有効）
+            // 4. 占い師による狐の呪殺
             if (foxKilledIndex !== null && playerData[foxKilledIndex].alive) {
                 const seerVisit = nightVisits.find(v => v.type === 'seer' && v.targetIndex === foxKilledIndex);
                 if (!seerVisit || playerData[seerVisit.visitorIndex].alive) {
                     playerData[foxKilledIndex].alive = false;
-                    if (!deadNames.includes(playerData[foxKilledIndex].name)) {
-                        deadNames.push(playerData[foxKilledIndex].name);
-                    }
+                    deadNames.push(playerData[foxKilledIndex].name);
                 }
             }
 
@@ -1509,11 +1522,11 @@
                     if (couples.length === 2) {
                         const c1 = couples[0];
                         const c2 = couples[1];
-                        if (!c1.alive && c2.alive && !deadNames.includes(c2.name) && !suicideNames.includes(c2.name)) {
+                        if (!c1.alive && c2.alive && !deadNames.includes(c2.name) && !trapDeadNames.includes(c2.name) && !suicideNames.includes(c2.name)) {
                             c2.alive = false;
                             suicideNames.push(c2.name);
                             checkAgain = true;
-                        } else if (!c2.alive && c1.alive && !deadNames.includes(c1.name) && !suicideNames.includes(c1.name)) {
+                        } else if (!c2.alive && c1.alive && !deadNames.includes(c1.name) && !trapDeadNames.includes(c1.name) && !suicideNames.includes(c1.name)) {
                             c1.alive = false;
                             suicideNames.push(c1.name);
                             checkAgain = true;
@@ -1523,11 +1536,11 @@
                     if (lovers.length === 2) {
                         const l1 = lovers[0];
                         const l2 = lovers[1];
-                        if (!l1.alive && l2.alive && !deadNames.includes(l2.name) && !suicideNames.includes(l2.name)) {
+                        if (!l1.alive && l2.alive && !deadNames.includes(l2.name) && !trapDeadNames.includes(l2.name) && !suicideNames.includes(l2.name)) {
                             l2.alive = false;
                             suicideNames.push(l2.name);
                             checkAgain = true;
-                        } else if (!l2.alive && l1.alive && !deadNames.includes(l1.name) && !suicideNames.includes(l1.name)) {
+                        } else if (!l2.alive && l1.alive && !deadNames.includes(l1.name) && !trapDeadNames.includes(l1.name) && !suicideNames.includes(l1.name)) {
                             l1.alive = false;
                             suicideNames.push(l1.name);
                             checkAgain = true;
@@ -1536,11 +1549,24 @@
                 }
             }
 
-            let allDead = deadNames.concat(suicideNames);
-            if (allDead.length === 0) {
+            // 6. 朝のニュースメッセージ組み立て（罠死は役職非公開）
+            let allDeadAnnouncements = [];
+            trapDeadNames.forEach(name => {
+                allDeadAnnouncements.push(`<b>${name}</b> さん（罠によって死亡・役職不明）`);
+            });
+            deadNames.forEach(name => {
+                if (!allDeadAnnouncements.some(item => item.includes(name))) {
+                    allDeadAnnouncements.push(`<b>${name}</b> さん`);
+                }
+            });
+            suicideNames.forEach(name => {
+                allDeadAnnouncements.push(`<b>${name}</b> さん`);
+            });
+
+            if (allDeadAnnouncements.length === 0) {
                 morningNews.push('☀️ 朝になりました。昨晩の犠牲者はいませんでした！');
             } else {
-                morningNews.push(`☀️ 朝になりました。昨晩の犠牲者は <b>${allDead.join('、')}</b> さんでした...`);
+                morningNews.push(`☀️ 朝になりました。昨晩の犠牲者は ${allDeadAnnouncements.join('、')} でした...`);
             }
 
             dayCount++;
@@ -1551,7 +1577,6 @@
             const aliveWolves = playerData.filter(p => p.alive && p.role === '人狼 🐺').length;
             const initialWolvesCount = playerData.filter(p => p.role === '人狼 🐺').length;
             const aliveFoxes = playerData.filter(p => p.alive && p.role === '狐 🦊').length;
-            // 酔っぱらいは最初から人間陣営としてカウント
             const aliveHumans = playerData.filter(p => p.alive && p.role !== '人狼 🐺' && p.role !== '狐 🦊').length;
 
             const lovers = playerData.filter(p => p.isLover);
@@ -1574,7 +1599,11 @@
                     reason = '人狼が全滅したとき、狐が生き残っていました！';
                 } else {
                     winner = '🎉 人間陣営の勝利！';
-                    reason = (initialWolvesCount >= 2) ? '人狼をすべて（全員）追放しました！' : '村に潜んでいた人狼を追放しました！';
+                    if (trapKillTriggeredByWolves) {
+                        reason = '罠師が仕掛けた罠によって人狼たちが返り討ちに遭い、全滅しました！';
+                    } else {
+                        reason = (initialWolvesCount >= 2) ? '人狼をすべて（全員）追放しました！' : '村に潜んでいた人狼を追放しました！';
+                    }
                     if (loversAreBothHuman && bothLoversAlive) {
                         reason += `\n💘 人間陣営の恋人（${lovers[0].name}・${lovers[1].name}）も共に勝利しました！`;
                     }
